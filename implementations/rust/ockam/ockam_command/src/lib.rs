@@ -26,10 +26,8 @@ use console::Term;
 use miette::GraphicalReportHandler;
 use once_cell::sync::Lazy;
 
-use authenticated::AuthenticatedCommand;
 use completion::CompletionCommand;
 use configuration::ConfigurationCommand;
-use credential::CredentialCommand;
 use enroll::EnrollCommand;
 use environment::EnvironmentCommand;
 use error::{Error, Result};
@@ -57,7 +55,6 @@ use tcp::{
     connection::TcpConnectionCommand, inlet::TcpInletCommand, listener::TcpListenerCommand,
     outlet::TcpOutletCommand,
 };
-use trust_context::TrustContextCommand;
 use upgrade::check_if_an_upgrade_is_available;
 use util::{exitcode, exitcode::ExitCode};
 use vault::VaultCommand;
@@ -66,6 +63,7 @@ use worker::WorkerCommand;
 
 use crate::admin::AdminCommand;
 use crate::authority::AuthorityCommand;
+use crate::credential::CredentialCommand;
 use crate::flow_control::FlowControlCommand;
 use crate::kafka::direct::KafkaDirectCommand;
 use crate::kafka::outlet::KafkaOutletCommand;
@@ -78,7 +76,6 @@ use crate::subscription::SubscriptionCommand;
 pub use crate::terminal::{OckamColor, Terminal, TerminalStream};
 
 mod admin;
-mod authenticated;
 mod authority;
 mod completion;
 mod configuration;
@@ -115,7 +112,6 @@ mod status;
 mod subscription;
 pub mod tcp;
 mod terminal;
-mod trust_context;
 mod upgrade;
 pub mod util;
 mod vault;
@@ -332,13 +328,11 @@ pub enum OckamSubcommand {
     Run(RunCommand),
     Status(StatusCommand),
     Reset(ResetCommand),
-    Authenticated(AuthenticatedCommand),
     Configuration(ConfigurationCommand),
 
     Completion(CompletionCommand),
     Markdown(MarkdownCommand),
     Manpages(ManpagesCommand),
-    TrustContext(TrustContextCommand),
     Environment(EnvironmentCommand),
 
     FlowControl(FlowControlCommand),
@@ -453,13 +447,11 @@ impl OckamCommand {
             OckamSubcommand::Run(c) => c.run(options),
             OckamSubcommand::Status(c) => c.run(options),
             OckamSubcommand::Reset(c) => c.run(options),
-            OckamSubcommand::Authenticated(c) => c.run(options),
             OckamSubcommand::Configuration(c) => c.run(options),
 
             OckamSubcommand::Completion(c) => c.run(),
             OckamSubcommand::Markdown(c) => c.run(),
             OckamSubcommand::Manpages(c) => c.run(),
-            OckamSubcommand::TrustContext(c) => c.run(options),
             OckamSubcommand::Environment(c) => c.run(),
 
             OckamSubcommand::FlowControl(c) => c.run(options),

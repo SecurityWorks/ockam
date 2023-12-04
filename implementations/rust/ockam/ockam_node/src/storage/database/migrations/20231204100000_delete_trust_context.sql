@@ -1,0 +1,32 @@
+DROP TABLE trust_context;
+DROP TABLE credential;
+
+CREATE INDEX identity_attributes_attested_by_index ON identity_attributes (identifier, attested_by);
+
+CREATE TABLE authority_member
+(
+    identifier     TEXT NOT NULL UNIQUE,
+    added_by       TEXT,
+    added_at       INTEGER NOT NULL,
+    expires_at     INTEGER,
+    is_pre_trusted INTEGER NOT NULL,
+    attributes     BLOB
+);
+
+CREATE UNIQUE INDEX authority_member_identifier_index ON authority_member(identifier);
+CREATE INDEX authority_member_is_pre_trusted_index ON authority_member(is_pre_trusted);
+
+CREATE TABLE authority_enrollment_token
+(
+    one_time_code TEXT NOT NULL UNIQUE,
+    issued_by     TEXT NOT NULL,
+    created_at    INTEGER NOT NULL,
+    expires_at    INTEGER NOT NULL,
+    ttl_count     INTEGER NOT NULL,
+    attributes    BLOB
+);
+
+CREATE UNIQUE INDEX authority_enrollment_token_one_time_code_index ON authority_enrollment_token(one_time_code);
+CREATE INDEX authority_enrollment_token_expires_at_index ON authority_enrollment_token(expires_at);
+
+-- TODO: make identity_attributes.attested_by NOT NULL

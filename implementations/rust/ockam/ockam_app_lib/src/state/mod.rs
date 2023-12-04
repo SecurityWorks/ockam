@@ -15,9 +15,7 @@ use ockam_api::cloud::project::Project;
 use ockam_api::cloud::{AuthorityNode, Controller};
 use ockam_api::logs::WorkerGuard;
 use ockam_api::nodes::models::portal::OutletStatus;
-use ockam_api::nodes::service::{
-    NodeManagerGeneralOptions, NodeManagerTransportOptions, NodeManagerTrustOptions,
-};
+use ockam_api::nodes::service::{NodeManagerGeneralOptions, NodeManagerTransportOptions};
 use ockam_api::nodes::{BackgroundNode, InMemoryNode, NodeManagerWorker, NODEMANAGER_ADDR};
 use ockam_multiaddr::MultiAddr;
 
@@ -687,18 +685,17 @@ pub(crate) async fn make_node_manager(
         .start_node_with_optional_values(NODE_NAME, &None, &None, Some(&listener))
         .await?;
 
+    let trust_options = cli_state
+        .retrieve_trust_options(&None, &tcp)
+        .await
+        .into_diagnostic()?;
+
     let node_manager = Arc::new(
         InMemoryNode::new(
             &ctx,
-            NodeManagerGeneralOptions::new(
-                cli_state.clone(),
-                NODE_NAME.to_string(),
-                None,
-                true,
-                true,
-            ),
+            NodeManagerGeneralOptions::new(cli_state.clone(), NODE_NAME.to_string(), true, true),
             NodeManagerTransportOptions::new(listener.flow_control_id().clone(), tcp),
-            NodeManagerTrustOptions::new(cli_state.get_default_trust_context().await.ok()),
+            trust_options,
         )
         .await
         .into_diagnostic()?,

@@ -10,27 +10,21 @@ use miette::IntoDiagnostic;
 use minicbor::{Decoder, Encode};
 
 use ockam::identity::models::CredentialAndPurposeKey;
-use ockam::identity::TrustContext;
-use ockam::identity::{Credentials, CredentialsServer, Identities};
-use ockam::identity::{CredentialsServerModule, IdentityAttributesRepository};
+use ockam::identity::RemoteCredentialRetrieverInfo;
 use ockam::identity::{Identifier, SecureChannels};
 use ockam::{
     Address, Context, RelayService, RelayServiceOptions, Result, Routed, TcpTransport, Worker,
 };
-use ockam_abac::expr::{eq, ident, str};
+use ockam_abac::expr::{str, t};
 use ockam_abac::{Action, Env, Expr, Policy, Resource};
 use ockam_core::api::{Method, RequestHeader, Response};
 use ockam_core::compat::{string::String, sync::Arc};
 use ockam_core::flow_control::FlowControlId;
-use ockam_core::AllowAll;
-use ockam_core::IncomingAccessControl;
+use ockam_core::{AllowAll, IncomingAccessControl};
 use ockam_multiaddr::MultiAddr;
 
-use crate::bootstrapped_identities_store::PreTrustedIdentities;
 use crate::cli_state::CliState;
-use crate::cli_state::NamedTrustContext;
 use crate::cloud::{AuthorityNode, ProjectNode};
-use crate::error::ApiError;
 use crate::nodes::connection::{
     Connection, ConnectionBuilder, PlainTcpInstantiator, ProjectInstantiator,
     SecureChannelInstantiator,
@@ -46,7 +40,6 @@ use super::registry::Registry;
 
 pub mod actions;
 pub(crate) mod background_node;
-pub(crate) mod credentials;
 pub mod default_address;
 mod flow_controls;
 pub(crate) mod in_memory_node;
@@ -97,7 +90,8 @@ pub struct NodeManager {
     api_transport_flow_control_id: FlowControlId,
     pub(crate) tcp_transport: TcpTransport,
     pub(crate) secure_channels: Arc<SecureChannels>,
-    trust_context: Option<TrustContext>,
+    credential_retriever_options: NodeManagerCredentialRetrieverOptions,
+    authority: Option<Identifier>,
     pub(crate) registry: Registry,
     pub(crate) medic_handle: MedicHandle,
 }
@@ -118,28 +112,16 @@ impl NodeManager {
         }
     }
 
-    pub fn trust_context_id(&self) -> Option<String> {
-        self.trust_context.clone().map(|tc| tc.id().to_string())
+    pub fn credential_retriever_options(&self) -> &NodeManagerCredentialRetrieverOptions {
+        &self.credential_retriever_options
+    }
+
+    pub fn authority(&self) -> Option<Identifier> {
+        self.authority.clone()
     }
 
     pub fn node_name(&self) -> String {
         self.node_name.clone()
-    }
-
-    pub(super) fn identities(&self) -> Arc<Identities> {
-        self.secure_channels.identities()
-    }
-
-    pub(super) fn identity_attributes_repository(&self) -> Arc<dyn IdentityAttributesRepository> {
-        self.identities().identity_attributes_repository().clone()
-    }
-
-    pub(super) fn credentials(&self) -> Arc<Credentials> {
-        self.identities().credentials()
-    }
-
-    pub(super) fn credentials_service(&self) -> Arc<dyn CredentialsServer> {
-        Arc::new(CredentialsServerModule::new(self.credentials()))
     }
 
     pub fn tcp_transport(&self) -> &TcpTransport {
@@ -232,25 +214,22 @@ impl NodeManager {
         &self,
         resource: &Resource,
         action: &Action,
-        trust_context_id: Option<&str>,
+        authority: Option<Identifier>,
         custom_default: Option<&Expr>,
     ) -> Result<Arc<dyn IncomingAccessControl>> {
-        if let Some(tcid) = trust_context_id {
+        if let Some(authority) = authority {
             // Populate environment with known attributes:
             let mut env = Env::new();
+
             env.put("resource.id", str(resource.as_str()));
             env.put("action.id", str(action.as_str()));
-            env.put("resource.trust_context_id", str(tcid));
 
             // Check if a policy exists for (resource, action) and if not, then
             // create or use a default entry:
             if self.cli_state.get_policy(resource, action).await?.is_none() {
                 let fallback = match custom_default {
                     Some(e) => e.clone(),
-                    None => eq([
-                        ident("resource.trust_context_id"),
-                        ident("subject.trust_context_id"),
-                    ]),
+                    None => t(),
                 };
                 self.cli_state
                     .set_policy(resource, action, &Policy::new(fallback))
@@ -258,29 +237,22 @@ impl NodeManager {
             }
             let policy_access_control = self
                 .cli_state
-                .make_policy_access_control(resource, action, env)
+                .make_policy_access_control(resource, action, env, authority)
                 .await?;
             Ok(Arc::new(policy_access_control))
         } else {
-            debug!(
+            warn!(
                 "no policy access control set for resource '{}' and action: '{}'",
                 &resource, &action
             );
             Ok(Arc::new(AllowAll))
         }
     }
-
-    pub(crate) fn trust_context(&self) -> Result<&TrustContext> {
-        self.trust_context
-            .as_ref()
-            .ok_or_else(|| ApiError::core("Trust context doesn't exist"))
-    }
 }
 
 pub struct NodeManagerGeneralOptions {
     cli_state: CliState,
     node_name: String,
-    pre_trusted_identities: Option<PreTrustedIdentities>,
     start_default_services: bool,
     persistent: bool,
 }
@@ -289,14 +261,12 @@ impl NodeManagerGeneralOptions {
     pub fn new(
         cli_state: CliState,
         node_name: String,
-        pre_trusted_identities: Option<PreTrustedIdentities>,
         start_default_services: bool,
         persistent: bool,
     ) -> Self {
         Self {
             cli_state,
             node_name,
-            pre_trusted_identities,
             start_default_services,
             persistent,
         }
@@ -334,13 +304,26 @@ impl NodeManagerTransportOptions {
     }
 }
 
+pub enum NodeManagerCredentialRetrieverOptions {
+    None,
+    Remote(RemoteCredentialRetrieverInfo),
+    InMemory(CredentialAndPurposeKey),
+}
+
 pub struct NodeManagerTrustOptions {
-    trust_context: Option<NamedTrustContext>,
+    credential_retriever_options: NodeManagerCredentialRetrieverOptions,
+    authority: Option<Identifier>,
 }
 
 impl NodeManagerTrustOptions {
-    pub fn new(trust_context: Option<NamedTrustContext>) -> Self {
-        Self { trust_context }
+    pub fn new(
+        credential_retriever_options: NodeManagerCredentialRetrieverOptions,
+        authority: Option<Identifier>,
+    ) -> Self {
+        Self {
+            credential_retriever_options,
+            authority,
+        }
     }
 }
 
@@ -364,24 +347,11 @@ impl NodeManager {
         let cli_state = general_options.cli_state;
 
         let secure_channels = cli_state
-            .secure_channels(
-                &general_options.node_name,
-                general_options.pre_trusted_identities,
-            )
+            .secure_channels(&general_options.node_name)
             .await?;
 
         debug!("start the medic");
         let medic_handle = MedicHandle::start_medic(ctx).await?;
-
-        debug!("create the trust context");
-        let tcp_transport = transport_options.tcp_transport;
-        let trust_context = match trust_options.trust_context {
-            None => None,
-            Some(tc) => Some(
-                tc.trust_context(&tcp_transport, secure_channels.clone())
-                    .await?,
-            ),
-        };
 
         debug!("retrieve the node identifier");
         let node_identifier = cli_state
@@ -394,9 +364,10 @@ impl NodeManager {
             node_name: general_options.node_name,
             node_identifier,
             api_transport_flow_control_id: transport_options.api_transport_flow_control_id,
-            tcp_transport,
+            tcp_transport: transport_options.tcp_transport,
             secure_channels,
-            trust_context,
+            credential_retriever_options: trust_options.credential_retriever_options,
+            authority: trust_options.authority,
             registry: Default::default(),
             medic_handle,
         };
@@ -417,7 +388,7 @@ impl NodeManager {
         // Start services
         ctx.flow_controls()
             .add_consumer(DefaultAddress::UPPERCASE_SERVICE, api_flow_control_id);
-        self.start_uppercase_service(ctx, DefaultAddress::UPPERCASE_SERVICE.into())
+        self.start_uppercase_service_impl(ctx, DefaultAddress::UPPERCASE_SERVICE.into())
             .await?;
 
         RelayService::create(
@@ -436,17 +407,6 @@ impl NodeManager {
             ctx,
         )
         .await?;
-
-        // If we've been configured with a trust context, we can start Credential Exchange service
-        if let Ok(tc) = self.trust_context() {
-            self.start_credentials_service(
-                ctx,
-                tc.clone(),
-                DefaultAddress::CREDENTIALS_SERVICE.into(),
-                false,
-            )
-            .await?;
-        }
 
         Ok(())
     }
@@ -479,11 +439,10 @@ impl NodeManager {
         addr: &MultiAddr,
         identifier: Identifier,
         authorized: Option<Identifier>,
-        credential: Option<CredentialAndPurposeKey>,
         timeout: Option<Duration>,
     ) -> Result<Connection> {
         let authorized = authorized.map(|authorized| vec![authorized]);
-        self.connect(ctx, addr, identifier, authorized, credential, timeout)
+        self.connect(ctx, addr, identifier, authorized, timeout)
             .await
     }
 
@@ -495,7 +454,6 @@ impl NodeManager {
         addr: &MultiAddr,
         identifier: Identifier,
         authorized: Option<Vec<Identifier>>,
-        credential: Option<CredentialAndPurposeKey>,
         timeout: Option<Duration>,
     ) -> Result<Connection> {
         debug!(?timeout, "connecting to {}", &addr);
@@ -503,7 +461,7 @@ impl NodeManager {
             .instantiate(
                 ctx.clone(),
                 self,
-                ProjectInstantiator::new(identifier.clone(), timeout, credential.clone()),
+                ProjectInstantiator::new(identifier.clone(), timeout),
             )
             .await?
             .instantiate(ctx.clone(), self, PlainTcpInstantiator::new())
@@ -511,7 +469,7 @@ impl NodeManager {
             .instantiate(
                 ctx.clone(),
                 self,
-                SecureChannelInstantiator::new(&identifier, credential, timeout, authorized),
+                SecureChannelInstantiator::new(&identifier, timeout, authorized),
             )
             .await?
             .build();
@@ -582,14 +540,6 @@ impl NodeManagerWorker {
                 encode_response(req, self.delete_tcp_listener(dec.decode()?).await)?
             }
 
-            // ==*== Credential ==*==
-            (Post, ["node", "credentials", "actions", "get"]) => {
-                encode_response(req, self.get_credential(ctx, dec.decode()?).await)?
-            }
-            (Post, ["node", "credentials", "actions", "present"]) => {
-                encode_response(req, self.present_credential(ctx, dec.decode()?).await)?
-            }
-
             // ==*== Secure channels ==*==
             (Get, ["node", "secure_channel"]) => {
                 encode_response(req, self.list_secure_channels().await)?
@@ -621,11 +571,6 @@ impl NodeManagerWorker {
             }
 
             // ==*== Services ==*==
-            //<<<<<<< HEAD
-            (Post, ["node", "services", DefaultAddress::AUTHENTICATED_SERVICE]) => encode_response(
-                req,
-                self.start_authenticated_service(ctx, dec.decode()?).await,
-            )?,
             (Post, ["node", "services", DefaultAddress::UPPERCASE_SERVICE]) => {
                 encode_response(req, self.start_uppercase_service(ctx, dec.decode()?).await)?
             }
@@ -635,10 +580,6 @@ impl NodeManagerWorker {
             (Post, ["node", "services", DefaultAddress::HOP_SERVICE]) => {
                 encode_response(req, self.start_hop_service(ctx, dec.decode()?).await)?
             }
-            (Post, ["node", "services", DefaultAddress::CREDENTIALS_SERVICE]) => encode_response(
-                req,
-                self.start_credentials_service(ctx, dec.decode()?).await,
-            )?,
             (Post, ["node", "services", DefaultAddress::KAFKA_OUTLET]) => encode_response(
                 req,
                 self.start_kafka_outlet_service(ctx, dec.decode()?).await,

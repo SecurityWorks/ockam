@@ -171,34 +171,6 @@ impl StartKafkaDirectRequest {
     }
 }
 
-/// Request body when instructing a node to start an Identity service
-#[derive(Debug, Clone, Decode, Encode)]
-#[rustfmt::skip]
-#[cbor(map)]
-pub struct StartIdentityServiceRequest {
-    #[n(1)] pub addr: String,
-}
-
-impl StartIdentityServiceRequest {
-    pub fn new(addr: impl Into<String>) -> Self {
-        Self { addr: addr.into() }
-    }
-}
-
-/// Request body when instructing a node to start an Authenticated service
-#[derive(Debug, Clone, Decode, Encode)]
-#[rustfmt::skip]
-#[cbor(map)]
-pub struct StartAuthenticatedServiceRequest {
-    #[n(1)] pub addr: String,
-}
-
-impl StartAuthenticatedServiceRequest {
-    pub fn new(addr: impl Into<String>) -> Self {
-        Self { addr: addr.into() }
-    }
-}
-
 /// Request body when instructing a node to start an Uppercase service
 #[derive(Debug, Clone, Decode, Encode)]
 #[rustfmt::skip]
@@ -246,35 +218,10 @@ impl StartHopServiceRequest {
 #[cbor(map)]
 pub struct StartAuthenticatorRequest {
     #[n(1)] addr: String,
-    #[n(3)] proj: Vec<u8>,
     // FIXME: test id old format still matches with this
 }
 
 impl StartAuthenticatorRequest {
-    pub fn new(addr: impl Into<String>, proj: impl Into<Vec<u8>>) -> Self {
-        Self {
-            addr: addr.into(),
-            proj: proj.into(),
-        }
-    }
-
-    pub fn address(&self) -> &str {
-        &self.addr
-    }
-
-    pub fn project(&self) -> &[u8] {
-        &self.proj
-    }
-}
-
-#[derive(Debug, Clone, Decode, Encode)]
-#[rustfmt::skip]
-#[cbor(map)]
-pub struct StartVerifierService {
-    #[n(1)] addr: String,
-}
-
-impl StartVerifierService {
     pub fn new(addr: impl Into<String>) -> Self {
         Self { addr: addr.into() }
     }
@@ -283,38 +230,6 @@ impl StartVerifierService {
         &self.addr
     }
 }
-
-#[derive(Debug, Clone, Decode, Encode)]
-#[rustfmt::skip]
-#[cbor(map)]
-pub struct StartCredentialsService {
-    #[n(1)] public_identity: String,
-    #[n(2)] addr: String,
-    #[n(3)] oneway: bool,
-}
-
-impl StartCredentialsService {
-    pub fn new(public_identity: impl Into<String>, addr: impl Into<String>, oneway: bool) -> Self {
-        Self {
-            public_identity: public_identity.into(),
-            addr: addr.into(),
-            oneway,
-        }
-    }
-
-    pub fn address(&self) -> &str {
-        &self.addr
-    }
-
-    pub fn oneway(&self) -> bool {
-        self.oneway
-    }
-
-    pub fn public_identity(&self) -> &str {
-        &self.public_identity
-    }
-}
-
 /// Request body when instructing a node to start an Okta Identity Provider service
 #[derive(Debug, Clone, Decode, Encode)]
 #[rustfmt::skip]

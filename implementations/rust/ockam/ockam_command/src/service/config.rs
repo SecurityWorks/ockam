@@ -28,8 +28,6 @@ pub struct AuthenticatorConfig {
     #[serde(default = "authenticator_default_addr")]
     pub(crate) address: String,
 
-    pub(crate) project: String,
-
     #[serde(default)]
     pub(crate) disabled: bool,
 }
