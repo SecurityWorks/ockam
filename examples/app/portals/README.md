@@ -3,7 +3,7 @@
 - [Portals for Mac](#portals-for-mac)
 - [Introduction to Ockam Portals](#introduction-to-ockam-portals)
 - [How we built a Swift macOS app that uses our Rust library](#how-we-built-a-swift-macos-app-that-uses-our-rust-library)
-- [Step-by-Step: Everything that happens to establish an Encrypted Portal](#how)
+- [Step-by-Step: How an end-to-end encrypted Portal is estavlished](#how)
 
 ## Portals for Mac
 
@@ -137,5 +137,5 @@ If you're curious to learn more, checkout the code for the [ockam_app_lib crate]
 
 If you're interested in contributing to the app's Swift or Rust code, we add new [good first issues](https://github.com/build-trust/ockam/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) every week and love helping new contributors. Join us on the [contributors discord](https://discord.ockam.io/).
 
-# Step-by-Step: Everything that happens to establish an Encrypted Portal
+# Step-by-Step: How an end-to-end encrypted Portal is estavlished
 
