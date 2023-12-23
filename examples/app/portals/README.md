@@ -139,3 +139,4 @@ If you're interested in contributing to the app's Swift or Rust code, we add new
 
 # Step-by-Step: How an End-to-End Encrypted Portal is established
 
+1. You start Portals for Mac for the first time on a computer. We ask you to Enroll with Ockam Orchestrator. When you click the `Enroll...` button we start the OAuth 2.0 Authorization Code Flow with PKCE
