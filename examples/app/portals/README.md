@@ -3,7 +3,7 @@
 - [Portals for Mac](#portals-for-mac)
 - [Introduction to Ockam Portals](#introduction-to-ockam-portals)
 - [How we built a Swift macOS app that uses our Rust library](#how-we-built-a-swift-macos-app-that-uses-our-rust-library)
-- [Step-by-Step: How an End-to-End Encrypted Portal is established](#how)
+- [Step-by-Step: How an End-to-End Encrypted Portal is established](#step-by-step-how-an-end-to-end-encrypted-portal-is-established)
 
 ## Portals for Mac
 
