@@ -135,3 +135,6 @@ VStack(alignment: .leading, spacing: 0) {
 If you're curious to learn more, checkout the code for the [ockam_app_lib crate](https://github.com/build-trust/ockam/tree/develop/implementations/rust/ockam/ockam_app_lib) and the Portals [app in Swift](https://github.com/build-trust/ockam/tree/develop/implementations/swift/ockam/ockam_app). The [Makefile](https://github.com/build-trust/ockam/blob/develop/implementations/swift/Makefile) in the swift folder is also a good place to explore how everything is built and linked together.
 
 If you're interested in contributing to the app's Swift or Rust code, we add new [good first issues](https://github.com/build-trust/ockam/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) every week and love helping new contributors. Join us on the [contributors discord](https://discord.ockam.io/).
+
+# How
+
