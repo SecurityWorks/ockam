@@ -139,4 +139,6 @@ If you're interested in contributing to the app's Swift or Rust code, we add new
 
 # Step-by-Step: How an End-to-End Encrypted Portal is established
 
-1. You start Portals for Mac for the first time on a computer. We ask you to Enroll with Ockam Orchestrator. When you click the `Enroll...` button we start the OAuth 2.0 Authorization Code Flow with PKCE
+1. You start Portals app for the first time on your computer. The app asks you to Enroll with Ockam Orchestrator. When you click the `Enroll...` button it starts the OAuth 2.0 Authorization Code Flow with PKCE with `https://account.ockam.io`. You signup / login with your github username or email address. When the OAuth flow completes the app receives an `access_token`, it then use that access token to query your account information. You may receive an email to verify your email address, the app waits for confirmation that the email is verified before proceeding.
+2. We then generate an Ockam [Identity](https://docs.ockam.io/reference/protocols/identities#identities) for you in a [Vault](https://docs.ockam.io/reference/protocols/keys) that is stored on disk.
+3. The app has compiletime hardcoded information about the [routo](https://docs.ockam.io/reference/protocols/routing) to Ockam Orchestrator's Controller and its Ockam [Identifier](https://docs.ockam.io/reference/protocols/identities#identities). The app established 
