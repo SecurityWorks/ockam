@@ -4,6 +4,7 @@
 - [Introduction to Ockam Portals](#introduction-to-ockam-portals)
 - [How we built a Swift macOS app that uses our Rust library](#how-we-built-a-swift-macos-app-that-uses-our-rust-library)
 - [Step-by-Step: How an End-to-End Encrypted Portal is established](#step-by-step-how-an-end-to-end-encrypted-portal-is-established)
+- [Contributor Sponsorship Matching Program]
 
 ## Portals for Mac
 
@@ -139,6 +140,12 @@ If you're interested in contributing to the app's Swift or Rust code, we add new
 
 # Step-by-Step: How an End-to-End Encrypted Portal is established
 
-1. You start Portals app for the first time on your computer. The app asks you to Enroll with Ockam Orchestrator. When you click the `Enroll...` button it starts the OAuth 2.0 Authorization Code Flow with PKCE with `https://account.ockam.io`. You signup / login with your github username or email address. When the OAuth flow completes the app receives an `access_token`, it then use that access token to query your account information. You may receive an email to verify your email address, the app waits for confirmation that the email is verified before proceeding.
-2. We then generate an Ockam [Identity](https://docs.ockam.io/reference/protocols/identities#identities) for you in a [Vault](https://docs.ockam.io/reference/protocols/keys) that is stored on disk.
-3. The app has compiletime hardcoded information about the [routo](https://docs.ockam.io/reference/protocols/routing) to Ockam Orchestrator's Controller and its Ockam [Identifier](https://docs.ockam.io/reference/protocols/identities#identities). The app established 
+1. On first launch, the Portals app, asks you to Enroll with Ockam Orchestrator. You click the Enroll button and it starts the `OAuth 2.0 Authorization Code Flow with PKCE` with `https://account.ockam.io`. You then signup / login with your github username or email address. When the OAuth flow completes, the app receives an `access_token`. It then use that token to query your account information from `https://account.ockam.io`.
+
+1. The app then generates an Ockam [Identity](https://docs.ockam.io/reference/protocols/identities#identities) for you with its secret keys in an Ockam [Vault](https://docs.ockam.io/reference/protocols/keys) stored on disk. Ockam Identities are cryptographically verifiable digital identities. Each Identity maintains one or more secret keys and has a unique Ockam Identifier. It's possible to use [Vaults](https://docs.ockam.io/reference/protocols/keys) that store secret keys in Apple Keychain, Secure Enclave, Yubikey, 1Password etc. If you're interested in that, please [tell us](https://discord.ockam.io) about it so we know which ones to prioritize in our plans. Vaults are pluggable and really simple to build. Our [AWS KMS vault](https://github.com/build-trust/ockam/tree/develop/implementations/rust/ockam/ockam_vault_aws) is a good starting to explore how to write one. Consider contributing a vault implementation.
+
+1. Next, the app establishes a mutually authenticated [Secure Channel](https://docs.ockam.io/reference/protocols/secure-channels) with Ockam Orchestrator's Controller. At compiletime, the Portals app, was hardcoded with the [route](https://docs.ockam.io/reference/protocols/routing) to the Controller and its Ockam [Identifier](https://docs.ockam.io/reference/protocols/identities#identities). 
+
+
+
+# Contributor Sponsorship Matching Program
